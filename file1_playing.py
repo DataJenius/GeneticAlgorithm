@@ -12,10 +12,15 @@ Playing with the Eims
 ######################################################################################
 # Import all needed classes
 from math import factorial
+import pandas as pd
+import random
+
 
 ######################################################################################
 # Define the scope of the N-Queens problem
-N_QUEENS = 4
+N_QUEENS = 4 # don't change this - the below code will NOT generalize
+MAX_POSSIBLE_CONFLICTS = 10
+ODDS_OF_MUTATION = 3 # odd are 1 in X we have a mutation with each new baby
 
 ######################################################################################
 # Class to handle our fictional "Eim" creatures
@@ -27,7 +32,8 @@ class Eim:
         self.dna = dna
         self.queens = None # hold all the queen positions as tuples
         self.conflicts = None # hold the number of conflicts between queens
-
+        self.fitness = None # use the baseline of 8 in this static version
+        
         # calculate the fitness of this Eim  (n-queens)
         self.count_conflicts(dna)
         
@@ -54,7 +60,8 @@ class Eim:
             self.conflicts += self.check_upleft(queen) 
             self.conflicts += self.check_downright(queen)             
             self.conflicts += self.check_downleft(queen)
-
+        self.fitness = MAX_POSSIBLE_CONFLICTS-self.conflicts
+        
         
     def check_right(self, queen):        
         """ Move queen right until conflict or edge of board """
@@ -179,7 +186,8 @@ class Generation:
         self.gen_num = Generation.generation
         self.population = 0 # how many Eims do we have?
         self.eims = [] # hold the Eim objects for this generation
-       
+        self.fitness_avg = 0 # hold the best fitness of a generation
+        self.fitness_best = 0 # hold the best fitness of a generation       
         
     def add_eim(self, eim):
         """ Add an Eim object (creature) to this generation """
@@ -236,8 +244,95 @@ class Generation:
         print("Population: ",next_gen.population)
         print("Unique: ",next_gen.get_count_unique())        
         #print(next_gen.get_list_dna())        
-        return next_gen            
+        return next_gen       
+
+    def breed_via_natural_selection(self):
+        """ Breed our Eims based on the rules of natural selection  """
+        
+        # hold the children in the next generation
+        next_gen = Generation()
+        print("----- TIME TO BREED ------")
+        print("This is Generation #", self.gen_num)            
+        print("Eims with Unique DNA:",self.get_count_unique())              
+        print("Population:",self.population)
+        print("Clone Ratio:",round(((self.population-self.get_count_unique())/self.population)*100,2),"%")                
+
+        # organize this generation into a dataframe
+        eim_dna = []
+        eim_fitness = []   
+        for eim in self.eims:
+            eim_dna.append(eim.dna)
+            eim_fitness.append(eim.fitness)            
+        df = pd.DataFrame(data={'dna':eim_dna,'fitness':eim_fitness})
+
+        # normalize fitness as a % probability of breeding & set generation stats
+        df["fitness_prob"]=df["fitness"]/sum(df["fitness"])
+        self.fitness_avg = df["fitness"].mean()
+        self.fitness_best = df["fitness"].max()
+        print("Best Fitness:", self.fitness_best)          
+        print("Avg Fitness:", self.fitness_avg)          
+        
+        # select two different parents from our population based on fitness_prob and make some fresh baby dna
+        # make babies until we get to replacement population
+        # keep track of avg fitness and best fitness in this generation
+        i = 0
+        fitness = []
+        while(i < 56):
+            i+=1
+            parents = df.sample(n=2, replace=False, weights=df["fitness_prob"],random_state=42)
+            baby_dna = self.breed_via_natural_selection_generate_new_dna(parents['dna'].iloc[0],parents['dna'].iloc[1])
+            baby = Eim(baby_dna)
+            next_gen.add_eim(baby)
+            fitness.append(baby.fitness)
+            if(baby.fitness > next_gen.fitness_best):
+                next_gen.fitness_best = baby.fitness
+        next_gen.fitness_avg = sum(fitness) / float(len(fitness))
+        
+        # show some stats
+        fitness_change = next_gen.fitness_avg-self.fitness_avg
+        if(fitness_change > 0):
+            print("Generation Improvement: ",fitness_change)
+        else:
+            print("We did worse: ",fitness_change)            
+        return next_gen
+    
+    
+    def breed_via_natural_selection_generate_new_dna(self, mom, dad):
+        """ Generate baby Eims DNA based on the rules of natural selection  """    
+        
+        # break both parents into A and B chromosome pairs
+        mom = [mom[0]+mom[1],mom[2]+mom[3]]
+        dad = [dad[0]+dad[1],dad[2]+dad[3]]
+        
+        # pick a random chromosome from both parents
+        mom_chromosome = random.choice(mom)
+        dad_chromosome = random.choice(dad) 
+        
+        # order the chromosomes at random
+        if(random.randint(1,2)==1):
+            baby_dna = mom_chromosome+dad_chromosome
+        else:
+            baby_dna = dad_chromosome+mom_chromosome                
+
+        # do we have a mutation?
+        # if so, randomly pick one of the 4 letters and randomly replace it
+        # note: 1 in 16 probability of mutation resulting in same DNA we started with
+        #if(random.randint(1,ODDS_OF_MUTATION)==1):
+        if(1==1):
+            #print("~~~~~~MUTATION~~~~~~")
+            replace = ['A','B','C','D']
+            i = random.randint(0,3)
+            j = random.randint(0,3)            
+            baby_dna = list(baby_dna)
+            baby_dna[i]=replace[j]
+            baby_dna = "".join(baby_dna)
+        return baby_dna
+        
+
             
+    def get_count_unique(self):
+        """ Get a count of the members of this generation with unique DNA """
+        return len(set(self.get_list_dna()))  
                             
     def get_list_dna(self):
         """ Get a list of the DNA of all members of this generation """
@@ -246,9 +341,6 @@ class Generation:
             my_list.append(eim.dna)
         return sorted(my_list) 
     
-    def get_count_unique(self):
-        """ Get a count of the members of this generation with unique DNA """
-        return len(set(self.get_list_dna()))
 
 
 ######################################################################################
@@ -264,6 +356,7 @@ gen1.add_eim(adam)
 gen1.add_eim(eve)
 
 # see what happens if we breed ALL combinations
+# we get 8 unique children in the first iteration
 gen2 = gen1.breed_all_combinations()
 
 # grandchildren
@@ -272,22 +365,28 @@ gen2 = gen1.breed_all_combinations()
 gen3 = gen2.breed_all_combinations()
 #print(sorted(set(gen3.get_list_dna())))
 
-# a 4th generation of the "breed all" yields 440 pop, still 16 unique
-gen4 = gen3.breed_all_combinations()
-#print(sorted(set(gen4.get_list_dna())))
+# can we get there starting with 56 population?
+print("---- START EVOLVING ----")
+gen4 = gen3.breed_via_natural_selection()
+gen5 = gen4.breed_via_natural_selection()
+gen6 = gen5.breed_via_natural_selection()
 
-gen5 = gen4.breed_all_combinations()
-gen6 = gen5.breed_all_combinations()
-gen7 = gen6.breed_all_combinations()
-gen8 = gen7.breed_all_combinations()
-gen9 = gen8.breed_all_combinations()
-gen10 = gen9.breed_all_combinations()
-# here we can start the magic evolution
+# how do we loop this bitch?
+i = 0
+tmp = gen6
+while(i < 1000):
+    i+=1
+    tmp = tmp.breed_via_natural_selection()
+    #if(tmp.fitness_best==MAX_POSSIBLE_CONFLICTS):
+    #    break
+    
+for eim in tmp.eims:
+    if(eim.conflicts==0):
+        print(eim.dna)    
+        print(eim.conflicts)    
+        print(eim.queens)
 
 """
-print("JOJOOJO")
-for eim in gen2.eims:
-    print(eim.dna)
-    print(eim.conflicts)  
-    print(eim.queens)    
+for eim in gen3.eims:
+    print(eim.conflicts)
 """
