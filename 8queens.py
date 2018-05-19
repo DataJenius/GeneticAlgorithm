@@ -5,22 +5,21 @@ Created on Thu May 17 14:54:10 2018
 
 @author: joshwork
 
-Playing around with a genetic algorithm
-
-Playing with the Eims
+Playing with the Eims- a genetic algorithm designed to solve the 8-queens problem
 """
+
 ######################################################################################
 # Import all needed classes
-from math import factorial
 import pandas as pd
 import random
 
 
 ######################################################################################
 # Define the scope of the N-Queens problem
-N_QUEENS = 4 # don't change this - the below code will NOT generalize
-MAX_POSSIBLE_CONFLICTS = 10
-ODDS_OF_MUTATION = 10 # odd are 1 in X we have a mutation with each new baby
+N_QUEENS = 8 # don't change this - the below code will NOT generalize
+MAX_POSSIBLE_CONFLICTS = 1000000 # not sure yet...
+ODDS_OF_MUTATION = 10 # odds are 1 in X we have a mutation with each new baby
+
 
 ######################################################################################
 # Class to handle our fictional "Eim" creatures
@@ -44,131 +43,126 @@ class Eim:
         # hold our queen coordinates in a list of tuples
         self.queens = []
         for key, chromosome in enumerate(dna): 
-            row = self.mapper(chromosome)            
-            col = key+1
+            row = key+1            
+            col = self.mapper(chromosome)            
             self.queens.append((row,col))
             
         # check each of our queens for all possible conflicts
         self.conflicts = 0
         for queen in self.queens:
-            self.conflicts += self.check_right(queen)
-            self.conflicts += self.check_left(queen)
-            # no need to check up or down since we only have 1 per column
-            #self.conflicts += self.check_up(queen)
-            #self.conflicts += self.check_down(queen)     
-            self.conflicts += self.check_upright(queen)  
-            self.conflicts += self.check_upleft(queen) 
-            self.conflicts += self.check_downright(queen)             
-            self.conflicts += self.check_downleft(queen)
+            # no need to check left or right since we only have 1 queen per row
+            #self.conflicts += self.check_conflicts_for_single_queen(queen,'R')
+            #self.conflicts += self.check_conflicts_for_single_queen(queen,'L')            
+            self.conflicts += self.check_conflicts_for_single_queen(queen,'U')
+            self.conflicts += self.check_conflicts_for_single_queen(queen,'D')
+            self.conflicts += self.check_conflicts_for_single_queen(queen,'UR') 
+            self.conflicts += self.check_conflicts_for_single_queen(queen,'UL')             
+            self.conflicts += self.check_conflicts_for_single_queen(queen,'DR')
+            self.conflicts += self.check_conflicts_for_single_queen(queen,'DL')            
         self.fitness = MAX_POSSIBLE_CONFLICTS-self.conflicts
+
+    def check_conflicts_for_single_queen(self, queen, direction):        
+        """ Move queen until we find a conflict or the edge of board """
+        row = queen[0]
+        col = queen[1]
+        #print("OUR QUEEN:")
+        #print(row, col) 
+        #print("checking...")
         
-        
-    def check_right(self, queen):        
-        """ Move queen right until conflict or edge of board """
-        row = queen[0]
-        col = queen[1]
-        while(col < N_QUEENS):
-            col += 1
-            if (row,col) in self.queens:
-                return 1                      
-        return 0
-    
-    
-    def check_left(self, queen):        
-        """ Move queen left until conflict or edge of board """
-        row = queen[0]
-        col = queen[1]
-        while(col > 0):
-            col -= 1
-            if (row,col) in self.queens:
-                return 1
-        return 0   
-    
-    
-    def check_up(self, queen):        
-        """ Move queen up until conflict or edge of board """
-        row = queen[0]
-        col = queen[1]     
-        while(row < N_QUEENS):
-            row += 1
-            if (row,col) in self.queens:
-                return 1
-        return 0  
+        # check right
+        if(direction=='R'):
+            while(col < N_QUEENS):
+                col += 1
+                #print(row, col)
+                if (row,col) in self.queens:
+                    #print("CONFLICT!")
+                    return 1  
+                
+        # check left
+        if(direction=='L'):
+            while(col > 1):
+                col -= 1
+                #print(row, col)
+                if (row,col) in self.queens:
+                    #print("CONFLICT!")
+                    return 1  
 
+        # check up
+        if(direction=='U'):
+            while(row < N_QUEENS):
+                row += 1
+                #print(row, col)
+                if (row,col) in self.queens:
+                    #print("CONFLICT!")
+                    return 1 
+                
+        # check down
+        if(direction=='D'):
+            while(row > 1):
+                row -= 1
+                #print(row, col)
+                if (row,col) in self.queens:
+                    #print("CONFLICT!")
+                    return 1   
+                
+        # check up-right
+        if(direction=='UR'):
+            while(row < N_QUEENS and col < N_QUEENS):
+                row += 1
+                col += 1     
+                #print(row, col)
+                if (row,col) in self.queens:
+                    #print("CONFLICT!")
+                    return 1  
 
-    def check_down(self, queen):        
-        """ Move queen down until conflict or edge of board """
-        row = queen[0]
-        col = queen[1]
-        while(row > 0):
-            row -= 1
-            if (row,col) in self.queens:
-                return 1
-        return 0   
+        # check up-left
+        if(direction=='UL'):
+            while(row < N_QUEENS and col > 1):
+                row += 1
+                col -= 1     
+                #print(row, col)
+                if (row,col) in self.queens:
+                    #print("CONFLICT!")
+                    return 1  
 
+        # check down-right
+        if(direction=='DR'):
+            while(row > 1 and col < N_QUEENS):
+                row -= 1
+                col += 1     
+                #print(row, col)
+                if (row,col) in self.queens:
+                    #print("CONFLICT!")
+                    return 1   
 
-    def check_upright(self, queen):        
-        """ Move queen up and right until conflict or edge of board """
-        row = queen[0]
-        col = queen[1]
-        while(row < N_QUEENS and col < N_QUEENS):
-            row += 1
-            col += 1            
-            if (row,col) in self.queens:
-                return 1
-        return 0            
-
-
-    def check_upleft(self, queen):        
-        """ Move queen up and left until conflict or edge of board """
-        row = queen[0]
-        col = queen[1]
-        while(row < N_QUEENS and col > 0):
-            row += 1
-            col -= 1            
-            if (row,col) in self.queens:
-                return 1
-        return 0 
-
-
-    def check_downright(self, queen):        
-        """ Move queen down and left until conflict or edge of board """
-        row = queen[0]
-        col = queen[1]
-        while(row > 0 and col < N_QUEENS):
-            row -= 1
-            col += 1            
-            if (row,col) in self.queens:
-                return 1
-        return 0  
-    
-    
-    def check_downleft(self, queen):        
-        """ Move queen down and left until conflict or edge of board """
-        row = queen[0]
-        col = queen[1]
-        while(row > 0 and col > 0):
-            row -= 1
-            col -= 1            
-            if (row,col) in self.queens:
-                return 1
-        return 0     
-    
-        
+        # check down-left
+        if(direction=='DL'):
+            while(row > 1 and col > 1):
+                row -= 1
+                col -= 1     
+                #print(row, col)
+                if (row,col) in self.queens:
+                    #print("CONFLICT!")
+                    return 1                   
+                
+        # if we get here there was no conflict in this direction                
+        #print("NO CONFLICT!")                    
+        return 0        
+                
     def mapper(self, chromosome):
         """ This is super hacky """
-        """ JOJO: This will break once N != 4 queens """
-        if(chromosome=='A'): return 4
-        if(chromosome=='B'): return 3
-        if(chromosome=='C'): return 2
-        if(chromosome=='D'): return 1        
+        """ Trying to use conventional chess notation """
+        if(chromosome=='A'): return 1
+        if(chromosome=='B'): return 2
+        if(chromosome=='C'): return 3
+        if(chromosome=='D'): return 4        
+        if(chromosome=='E'): return 5
+        if(chromosome=='F'): return 6
+        if(chromosome=='G'): return 7
+        if(chromosome=='H'): return 8        
         return 0
-        
-        
-    @classmethod
-    def how_many(cls):
-        """Prints the current population of Eims"""
-        print("We have {:d} Eims.".format(cls.population))         
+   
+
 
 
 ######################################################################################
@@ -181,21 +175,26 @@ class Generation:
     
     def __init__(self):
         """ Create a new generation of Eim """
-        
         # set our object variables here
         Generation.generation += 1
         self.gen_num = Generation.generation
-        self.population = 0 # how many Eims do we have?
+        self.population = 0 # how many Eims do we have in this generation?
         self.eims = [] # hold the Eim objects for this generation
-        self.fitness_avg = 0 # hold the best fitness of a generation
-        self.fitness_best = 0 # hold the best fitness of a generation       
+        self.fitness_avg = 0 # hold the average fitness of a generation
+        self.fitness_best = 0 # hold the best fitness of a generation 
+        self.dna = [] # hold all dna for this generation in a list
+        self.chromosome_pairs = [] # hold all chromosome pairs for this generation
         
     def add_eim(self, eim):
         """ Add an Eim object (creature) to this generation """
         Generation.cumulative_population += 1
         self.population += 1
         self.eims.append(eim)
-        
+        self.dna.append(eim.dna)
+        self.chromosome_pairs.append(eim.dna[0]+eim.dna[1])        
+        self.chromosome_pairs.append(eim.dna[2]+eim.dna[3]) 
+        self.chromosome_pairs.append(eim.dna[4]+eim.dna[5])         
+        self.chromosome_pairs.append(eim.dna[6]+eim.dna[7])         
         
     def breed_all_combinations(self):
         """ Brute force all possible combinations from these parents  """
@@ -350,13 +349,14 @@ class Generation:
 gen1 = Generation()
 
 # create our adam and eve
-adam = Eim('BBDD')
-eve = Eim('CCAA')
+adam = Eim('AABBCCDD')
+eve = Eim('EEFFGGHH')
 
 # add to the first generation
 gen1.add_eim(adam)
 gen1.add_eim(eve)
 
+"""
 # see what happens if we breed ALL combinations
 # we get 8 unique children in the first iteration
 gen2 = gen1.breed_all_combinations()
@@ -389,7 +389,6 @@ for eim in tmp.eims:
         print(eim.queens)
 
 print("There have been a total of ",tmp.cumulative_population," Eims since the dawn of time")
-"""
 for eim in gen3.eims:
     print(eim.conflicts)
 """
