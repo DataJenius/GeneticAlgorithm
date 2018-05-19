@@ -17,7 +17,7 @@ import random
 ######################################################################################
 # Define the scope of the N-Queens problem
 N_QUEENS = 8 # don't change this - the below code will NOT generalize
-MAX_POSSIBLE_CONFLICTS = 1000000 # not sure yet...
+MAX_POSSIBLE_CONFLICTS = 28 # not sure yet...
 ODDS_OF_MUTATION = 10 # odds are 1 in X we have a mutation with each new baby
 
 
@@ -172,6 +172,15 @@ class Generation:
     # class variables
     generation = 0
     cumulative_population = 0
+    df = pd.DataFrame(data={'1gen':[],
+                            '2pop':[],
+                            '3dna_unique_pop':[],
+                            '4clone_per':[],
+                            '5unique_chromosome_pairs':[],
+                            '6best_fitness':[],
+                            '7avg_fitness':[],
+                            '8max_conflicts':[],
+                            '9min_conflicts':[]})
     
     def __init__(self):
         """ Create a new generation of Eim """
@@ -179,11 +188,15 @@ class Generation:
         Generation.generation += 1
         self.gen_num = Generation.generation
         self.population = 0 # how many Eims do we have in this generation?
-        self.eims = [] # hold the Eim objects for this generation
+        self.eims = [] # hold the Eim objects for this generation        
+        self.eims_df = pd.DataFrame(data={'dna':[],'conflicts':[],'fitness':[]}) # hold Eim stats in dataframe for easy manipulation
+        self.max_conflicts = 0 # hold the max number of conflicts in this generation
+        self.min_conflicts = 0 # hold the min number of conflicts in this generation        
         self.fitness_avg = 0 # hold the average fitness of a generation
         self.fitness_best = 0 # hold the best fitness of a generation 
         self.dna = [] # hold all dna for this generation in a list
         self.chromosome_pairs = [] # hold all chromosome pairs for this generation
+        self.stats = None # hold our generation stats once generated
         
     def add_eim(self, eim):
         """ Add an Eim object (creature) to this generation """
@@ -194,11 +207,33 @@ class Generation:
         self.chromosome_pairs.append(eim.dna[0]+eim.dna[1])        
         self.chromosome_pairs.append(eim.dna[2]+eim.dna[3]) 
         self.chromosome_pairs.append(eim.dna[4]+eim.dna[5])         
-        self.chromosome_pairs.append(eim.dna[6]+eim.dna[7])         
+        self.chromosome_pairs.append(eim.dna[6]+eim.dna[7])  
+        df = pd.DataFrame(data={'dna':[eim.dna],'conflicts':[eim.conflicts],'fitness':[eim.fitness]})
+        self.eims_df = self.eims_df.append(df)
+        self.eims_df["mating_prob"]=self.eims_df["fitness"]/sum(self.eims_df["fitness"])
+        self.fitness_avg = self.eims_df["fitness"].mean()
+        self.fitness_best = self.eims_df["fitness"].max()
+        self.max_conflicts = self.eims_df["conflicts"].max()        
+        self.min_conflicts = self.eims_df["conflicts"].min()                
+        
+    def get_gen_stats(self):
+        """ Get key stats for this generation """        
+        self.stats = pd.DataFrame(data={'1gen':[self.gen_num],
+                                '2pop':[self.population],
+                                '3dna_unique_pop':[len(set(self.dna))],
+                                '4clone_per':[(self.population-len(set(self.dna)))/self.population],
+                                '5unique_chromosome_pairs':[len(set(self.chromosome_pairs))],
+                                '6best_fitness':[self.fitness_best],
+                                '7avg_fitness':[self.fitness_avg],
+                                '8max_conflicts':[self.max_conflicts],
+                                '9min_conflicts':[self.min_conflicts]})
+        Generation.df = Generation.df.append(self.stats)    
+
         
     def breed_all_combinations(self):
         """ Brute force all possible combinations from these parents  """
         """ No mutation here because we want a discrete count """
+        """ Note that after Adam and Eve we are just breeding children in the order they appear with the next child in the list """
         
         # hold the children in the next generation
         next_gen = Generation()
@@ -206,46 +241,104 @@ class Generation:
         dad = None
         for mom in self.eims:
             
-            # need 2 Eims to breed
+            # need 2 Eims to breed - any Eim can be mom or dad
             if(mom and dad):
-
-                # break both parents into X and Y chromosome pairs
-                momA = mom.dna[0]+mom.dna[1]
-                momB = mom.dna[2]+mom.dna[3]                
-                dadA = dad.dna[0]+dad.dna[1]
-                dadB = dad.dna[2]+dad.dna[3]   
-
-                # each pair of Eims could produce up to 8 unique offspring 
-                # break DNA in half, each chunk can go into either half of the offspring, order matters                            
-
+                
+                # break parents into 4 chromosomes each
+                cm1 = mom.dna[0]+mom.dna[1]
+                cm2 = mom.dna[2]+mom.dna[3]
+                cm3 = mom.dna[4]+mom.dna[5]
+                cm4 = mom.dna[6]+mom.dna[7]
+                cd1 = dad.dna[0]+dad.dna[1]
+                cd2 = dad.dna[2]+dad.dna[3] 
+                cd3 = dad.dna[4]+dad.dna[5]
+                cd4 = dad.dna[6]+dad.dna[7] 
+                
+                # option 1 - equal spit of dna between parents
+                # our dna splits into two halves and recombines
+                # 8 possible combinations based on order
+                
                 # mom goes first
-                baby1 = Eim(momA+dadA)
-                next_gen.add_eim(baby1)
-                baby2 = Eim(momA+dadB)
-                next_gen.add_eim(baby2)
-                baby3 = Eim(momB+dadA)
-                next_gen.add_eim(baby3)
-                baby4 = Eim(momB+dadB)
-                next_gen.add_eim(baby4)  
+                baby = Eim(cm1+cm2+cd1+cd2) # m 12 d 12
+                next_gen.add_eim(baby)
+                baby = Eim(cm1+cm2+cd3+cd4) # m 12 d 34                
+                next_gen.add_eim(baby)  
+                baby = Eim(cm3+cm4+cd1+cd2) # m 34 d 12
+                next_gen.add_eim(baby)                
+                baby = Eim(cm3+cm4+cd3+cd4) # m 34 d 34                
+                next_gen.add_eim(baby) 
                 
                 # dad goes first
-                baby5 = Eim(dadA+momA)
-                next_gen.add_eim(baby5) 
-                baby6 = Eim(dadA+momB)
-                next_gen.add_eim(baby6)                 
-                baby7 = Eim(dadB+momA)
-                next_gen.add_eim(baby7) 
-                baby8 = Eim(dadB+momB)
-                next_gen.add_eim(baby8)                 
+                baby = Eim(cd1+cd2+cm1+cm2) # d 12 m 12
+                next_gen.add_eim(baby)
+                baby = Eim(cd1+cd2+cm3+cm4) # d 12 m 34
+                next_gen.add_eim(baby)    
+                baby = Eim(cd3+cd4+cm1+cm2) # d 34 m 12
+                next_gen.add_eim(baby)                    
+                baby = Eim(cd3+cd4+cm3+cm4) # d 34 m 34
+                next_gen.add_eim(baby)   
+
+                # option 2 - mom is gentically dominant
+                # our dna splits  3/1 in favor of mom
+                # 8 possible combinations based on order
+                
+                # mom goes first
+                baby = Eim(cm1+cm2+cm3+cd1) # m 123 d 1
+                next_gen.add_eim(baby)
+                baby = Eim(cm1+cm2+cm3+cd4) # m 123 d 4
+                next_gen.add_eim(baby)    
+                baby = Eim(cm2+cm3+cm4+cd1) # m 234 d 1
+                next_gen.add_eim(baby)
+                baby = Eim(cm2+cm3+cm4+cd4) # m 234 d 4
+                next_gen.add_eim(baby)  
+                
+                # dad goes first
+                baby = Eim(cd1+cm1+cm2+cm3) # d 1 m 123 
+                next_gen.add_eim(baby)
+                baby = Eim(cd4+cm1+cm2+cm3) # d 4 m 123
+                next_gen.add_eim(baby)    
+                baby = Eim(cd1+cm2+cm3+cm4) # d1 m 234 
+                next_gen.add_eim(baby)
+                baby = Eim(cd4+cm2+cm3+cm4) # d 4 m 234
+                next_gen.add_eim(baby)  
+                
+                
+                # option 3 - dad is gentically dominant
+                # our dna splits  3/1 in favor of dad
+                # 8 possible combinations based on order
+                
+                # mom goes first
+                baby = Eim(cm1+cd1+cd2+cd3) # m 1 d 123
+                next_gen.add_eim(baby)
+                baby = Eim(cm1+cd2+cd3+cd4) # m 1 d 234
+                next_gen.add_eim(baby)    
+                baby = Eim(cm4+cd1+cd2+cd3) # m 4 d 123
+                next_gen.add_eim(baby)                
+                baby = Eim(cm4+cd2+cd3+cd4) # m 4 d 234
+                next_gen.add_eim(baby)   
+                
+                # dad goes first
+                baby = Eim(cd1+cd2+cd3+cm1) # d 123 m 1
+                next_gen.add_eim(baby)
+                baby = Eim(cd2+cd3+cd4+cm1) # d 234 m 1
+                next_gen.add_eim(baby)    
+                baby = Eim(cd1+cd2+cd3+cm4) # d 123 m 4
+                next_gen.add_eim(baby)                
+                baby = Eim(cd2+cd3+cd4+cm4) # d 234 m 4 
+                next_gen.add_eim(baby)   
+                 
                 
             # behold the pansexual Eims!
             dad = mom
             
+        next_gen.get_gen_stats()  
+        print("==== breed_all_combinations ====")
         print("Created new generation #", next_gen.gen_num)            
         print("Population: ",next_gen.population)
-        print("Unique: ",next_gen.get_count_unique())        
-        #print(next_gen.get_list_dna())        
+        print("Clone Per: ",next_gen.stats.iloc[0]["4clone_per"])        
+        print("Unique Chromosome Pairs: ",next_gen.stats.iloc[0]["5unique_chromosome_pairs"])                      
         return next_gen       
+
 
     def breed_via_natural_selection(self):
         """ Breed our Eims based on the rules of natural selection  """
@@ -330,21 +423,14 @@ class Generation:
         return baby_dna
         
 
-            
-    def get_count_unique(self):
-        """ Get a count of the members of this generation with unique DNA """
-        return len(set(self.get_list_dna()))  
-                            
-    def get_list_dna(self):
-        """ Get a list of the DNA of all members of this generation """
-        my_list = []
-        for eim in self.eims:
-            my_list.append(eim.dna)
-        return sorted(my_list) 
-    
 
 
 ######################################################################################
+# create a data frame to hold all of our experiment data
+df = pd.DataFrame(data={'dna':[],'fitness':[]})
+df2 = pd.DataFrame(data={'dna':['AABBCCDD'],'fitness':['JOJO']})
+df = df.append(df2)
+
 # create our first generation
 gen1 = Generation()
 
@@ -356,6 +442,12 @@ eve = Eim('EEFFGGHH')
 gen1.add_eim(adam)
 gen1.add_eim(eve)
 
+# get stats for first generation
+gen1.get_gen_stats()
+
+# create the 2nd generation by breeding ALL combinations of Adam and Eve
+gen2 = gen1.breed_all_combinations()
+print(Generation.df)
 """
 # see what happens if we breed ALL combinations
 # we get 8 unique children in the first iteration
