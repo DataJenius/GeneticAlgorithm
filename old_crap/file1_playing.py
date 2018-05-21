@@ -20,7 +20,7 @@ import random
 # Define the scope of the N-Queens problem
 N_QUEENS = 4 # don't change this - the below code will NOT generalize
 MAX_POSSIBLE_CONFLICTS = 10
-ODDS_OF_MUTATION = 10 # odd are 1 in X we have a mutation with each new baby
+ODDS_OF_MUTATION = 3 # odd are 1 in X we have a mutation with each new baby
 
 ######################################################################################
 # Class to handle our fictional "Eim" creatures
