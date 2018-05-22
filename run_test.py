@@ -13,4 +13,4 @@ Breed and measure eims based on the "random" method
 from class_EimWorld import Study
 
 # all experiment settings are held inside class_EimsWorld.py
-study = Study(iterations=10)
+study = Study(iterations=100)
