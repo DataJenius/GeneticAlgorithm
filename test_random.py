@@ -10,9 +10,7 @@ Breed and measure eims based on the "random" method
 
 ######################################################################################
 # Import all needed classes
-from datetime import datetime
-from class_EimWorld import Experiment
+from class_EimWorld import Study
 
-# run our experiment
-experiment = Experiment(method="random", fitness_goal="max", generations=100)
-
+# all experiment settings are held inside class_EimsWorld.py
+study = Study(iterations=10)
