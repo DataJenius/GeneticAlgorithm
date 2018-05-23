@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
+ #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Mon May 21 08:23:24 2018
 
 @author: joshwork
 
-Breed and measure eims based on the "random" method
+Breed and measure eims based on class_EimWorld
 """
 
 ######################################################################################

@@ -13,7 +13,7 @@ the "random" and "natural selection" methods with options
 # Import all needed dependencies
 from datetime import datetime
 import itertools
-from math import factorial
+from math import factorial, ceil
 import pandas as pd
 import random
 import string
@@ -27,10 +27,10 @@ class Study:
     
         ### These experiment settings are manually set by the scientist experimenting ###   
         self.settings={}
-        self.settings["strategy"] = 'evolution'         # random | evolution | harem
+        self.settings["strategy"] = 'couples'           # random | evolution | harem | couples
         self.settings["fitness_goal"]= 'min'            # max | min | switch - are we trying to min or max the number of queen conflicts? can also "switch" at halfway point of experiment      
         self.settings["generations"] = 100              # number of generations to spawn in each experiment
-        self.settings["eims_per_generation"] = 256      # how many eims should each generation contain?
+        self.settings["eims_per_generation"] = 256      # how many eims should each generation contain? must be even for the "couples" strategy to work
         self.settings["n_queens"] = 4                   # how many queens? must be even number so we get even chromosome pairs, max is 26 letters in alphabet       
         self.settings["odds_of_mutation"] = 3           # odds of any single baby eim mutating are 1 in X (1 in 16 chance mutation leaves baby alone)
         self.settings["DNA_adam"] = 'AABB'              # DNA for "Adam", len must equal n-queens
@@ -45,10 +45,10 @@ class Study:
         self.results_fitness_over_generations = pd.DataFrame()        
             
         # save into these pickle files
-        save_results_most_solutions             = '256per_100gens_4queens_evolution_most_solutions.pkl'
-        save_results_solutions_over_generations = '256per_100gens_4queens_evolution_solutions_over_generations.pkl'
-        save_results_conflicts_over_generations = '256per_100gens_4queens_evolution_conflicts_over_generations.pkl'
-        save_results_fitness_over_generations   = '256per_100gens_4queens_evolution_fitness_over_generations.pkl'        
+        save_results_most_solutions             = '256per_100gens_4queens_couples_most_solutions.pkl'
+        save_results_solutions_over_generations = '256per_100gens_4queens_couples_solutions_over_generations.pkl'
+        save_results_conflicts_over_generations = '256per_100gens_4queens_couples_conflicts_over_generations.pkl'
+        save_results_fitness_over_generations   = '256per_100gens_4queens_couples_fitness_over_generations.pkl'
                 
         # iterate through our experiment as many times as designated
         i = 0
@@ -154,13 +154,27 @@ class Experiment:
             self.state["fitness_goal"] = self.fitness_goal            
         
         ### Call one of our experiment strategies ###
+
+        # evolution
+        if(strategy=='couples'):
+            self.experiment_couples()
+            return None 
+        
+        # evolution
+        if(strategy=='evolution'):
+            self.experiment_evolution()
+            return None 
+        
+        # harem
+        if(strategy=='harem'):
+            self.experiment_harem()
+            return None         
+
+        # random        
         if(strategy=='random'):
             self.experiment_random()
             return None
         
-        if(strategy=='evolution'):
-            self.experiment_evolution()
-            return None        
                  
     def add_to_generations_df(self, eims_df, gen_num, gen_method):        
         """ Set the dataframe of all eims in this generation """
@@ -174,6 +188,24 @@ class Experiment:
         self.generations_df=self.generations_df.append(row, ignore_index=True)
         
         
+    def experiment_couples(self):
+        """ Run a evolution experiment based on the couples method """       
+        print("Run an evolution experiment!")
+        
+        # get our population started
+        gen = self.start_population(expand_pop=True)
+        
+        # generate all needed generations, by couples
+        i = 0        
+        while(i < self.parent.settings["generations"]):
+            i += 1
+            startTime = datetime.now()            
+            gen = Generation(self, 'couples', gen.eims_df)  
+            self.add_to_generations_df(gen.eims_df, i, 'couples')
+            self.switch_fitness_metric(i)  
+            self.parent.timer_message(startTime, i)
+              
+            
     def experiment_evolution(self):
         """ Run a evolution experiment based on natural selection method """       
         print("Run an evolution experiment!")
@@ -190,6 +222,24 @@ class Experiment:
             self.add_to_generations_df(gen.eims_df, i, 'evolution')
             self.switch_fitness_metric(i)  
             self.parent.timer_message(startTime, i)
+            
+
+    def experiment_harem(self):
+        """ Run a evolution experiment based on harem method """       
+        print("Run a harem experiment!")
+        
+        # get our population started
+        gen = self.start_population()
+        
+        # generate all needed generations, by harem
+        i = 0        
+        while(i < self.parent.settings["generations"]):
+            i += 1
+            startTime = datetime.now()            
+            gen = Generation(self, 'harem', gen.eims_df)        
+            self.add_to_generations_df(gen.eims_df, i, 'harem')
+            self.switch_fitness_metric(i)  
+            self.parent.timer_message(startTime, i)            
                     
         
     def experiment_random(self):
@@ -207,19 +257,27 @@ class Experiment:
             self.parent.timer_message(startTime, i)            
         
         
-    def start_population(self):
+    def start_population(self, expand_pop=False):
         """ Prime the population before starting evolution """
         
         # start with Adam and Eve (generation -1)
-        i = -1
+        i = -2
         gen = Generation(self, 'genesis')
         self.add_to_generations_df(gen.eims_df, i, 'genesis')
 
         # all genetic combinations from Adam and Eve (generation 0)
-        i = 0
+        i = -1
         gen = Generation(self, 'combos', gen.eims_df)
-        self.add_to_generations_df(gen.eims_df, i, 'combos')
-        return(gen)
+        self.add_to_generations_df(gen.eims_df, i, 'combos')       
+        
+        # expand to the full population number based on combos
+        i = 0
+        if(expand_pop):
+            gen = Generation(self, 'expand', gen.eims_df)
+            self.add_to_generations_df(gen.eims_df, i, 'expand')  
+            
+        # all done            
+        return(gen)            
 
 
 
@@ -251,15 +309,30 @@ class Generation:
         if(gentype=='combos'):
             self.create_generation_by_combos(parents)
             return None
+
+        # Make a generation via the couples method
+        if(gentype=='couples'):
+            self.create_generation_by_couples(parents)
+            return None
         
         # Make a generation via the evolution method
         if(gentype=='evolution'):
             self.create_generation_by_evolution(parents)
             return None
         
+        # Make a generation via the expand method
+        if(gentype=='expand'):
+            self.create_generation_by_expand(parents)
+            return None        
+        
         # Make a generation from Adam and Eve
         if(gentype=='genesis'):
             self.create_generation_by_genesis()
+            return None
+
+        # Make a generation via the harem method
+        if(gentype=='harem'):
+            self.create_generation_by_harem(parents)
             return None
 
         # Make a random generation  
@@ -296,9 +369,65 @@ class Generation:
         # create dataframe
         self.set_eims_df([eim_dna,eim_conflicts,eim_fitness,eim_is_solution]) # order matters                
         
+        
+    def create_generation_by_couples(self, parents):
+        """ Make a generation via couples method on parent generation """
 
+        # Determine mating probability of all parents
+        parents["mating_prob"]=parents["fitness"]/sum(parents["fitness"])        
+        
+        # sort everyone based on fitness
+        parents = parents.sort_values(by='fitness', ascending=False)
+        parents["tmp_index"]=range(1,len(parents)+1)
+        
+        # split into mom and dad list, two lists ranked by mating_prob
+        moms = parents[parents["tmp_index"] % 2 != 0] # use odds for moms
+        dads = parents[parents["tmp_index"] % 2 == 0] # use evens for dads  
+                             
+        # generate eims df as we generate the eims themselves
+        eim_dna = []
+        eim_conflicts = []
+        eim_fitness = []
+        eim_is_solution = []     
+        eim_mom = []
+        eim_dad = []
+        eim_mom_chromosome = []
+        eim_dad_chromosome = []
+        eim_mutated = [] 
+        babies_created = 0
+ 
+        # create two babies from each set of parents - replacement population
+        for (mom, dad) in zip(moms["dna"], dads["dna"]):
+            params = {"eimtype":'breeding',
+                          "mom":mom,
+                          "dad":dad}   
+            
+            # make four babies 
+            i = 0
+            while(i < 4):
+                
+                # stop at generation limit
+                if(babies_created >= self.parent.parent.settings["eims_per_generation"]):
+                    break
+                i += 1
+                babies_created += 1
+                baby = Eim(self,params)
+                eim_dna.append(baby.dna)
+                eim_conflicts.append(baby.conflicts)            
+                eim_fitness.append(baby.fitness)
+                eim_is_solution.append(baby.is_solution)  
+                eim_mom.append(mom)
+                eim_dad.append(dad) 
+                eim_mom_chromosome.append(baby.mom_chromosome)
+                eim_dad_chromosome.append(baby.dad_chromosome)
+                eim_mutated.append(baby.mutated) 
+                    
+        # create dataframe
+        self.set_eims_df([eim_dna,eim_conflicts,eim_fitness,eim_is_solution,eim_mom,eim_dad,eim_mom_chromosome,eim_dad_chromosome,eim_mutated], extended=True) # order matters                        
+        
+        
     def create_generation_by_evolution(self, parents):
-        """ Make a generation from all evolution of parent generation """
+        """ Make a generation from evolution of parent generation """
         
         # Determine mating probability of all parents
         parents["mating_prob"]=parents["fitness"]/sum(parents["fitness"])
@@ -341,6 +470,43 @@ class Generation:
             
         # create dataframe
         self.set_eims_df([eim_dna,eim_conflicts,eim_fitness,eim_is_solution,eim_mom,eim_dad,eim_mom_chromosome,eim_dad_chromosome,eim_mutated], extended=True) # order matters                        
+        
+        
+    def create_generation_by_expand(self, parents):
+        """ Make a generation from evolution of parent generation """
+        
+        # Determine mating probability of all parents and sort accordingly
+        parents["mating_prob"]=parents["fitness"]/sum(parents["fitness"])
+        parents = parents.sort_values(by='fitness', ascending=False)   
+        
+        # how many clones of each do we need?
+        needed_clones = ceil(self.parent.parent.settings["eims_per_generation"]/len(parents))
+        
+        # generate eims df as we generate the eims themselves
+        eim_dna = []
+        eim_conflicts = []
+        eim_fitness = []
+        eim_is_solution = []     
+ 
+        # expand until we reach the target population
+        i = 0
+        for dna in parents["dna"]:
+            j = 0
+            while(j < needed_clones):
+                i += 1
+                j += 1        
+                if(i > self.parent.parent.settings["eims_per_generation"]):
+                    break
+                params = {"eimtype":'dna',
+                              "dna":dna}
+                baby = Eim(self,params)
+                eim_dna.append(baby.dna)
+                eim_conflicts.append(baby.conflicts)            
+                eim_fitness.append(baby.fitness)
+                eim_is_solution.append(baby.is_solution) 
+
+        # create dataframe
+        self.set_eims_df([eim_dna,eim_conflicts,eim_fitness,eim_is_solution]) # order matters                                
 
                      
     def create_generation_by_genesis(self):
@@ -373,6 +539,63 @@ class Generation:
         # create dataframe
         self.set_eims_df([eim_dna,eim_conflicts,eim_fitness,eim_is_solution]) # order matters                
           
+        
+    def create_generation_by_harem(self, parents):
+        """ Make a generation via harem method on parent generation """
+
+        # Determine mating probability of all parents
+        parents["mating_prob"]=parents["fitness"]/sum(parents["fitness"])
+        
+        # The top 5% become our "alphas" and everone else is a "beta"
+        parents = parents.sort_values(by='fitness', ascending=False)
+        alpha_count = ceil(len(parents)*0.05)
+        alphas = parents[:alpha_count]
+        betas =  parents[alpha_count:]
+        
+        # generate eims df as we generate the eims themselves
+        eim_dna = []
+        eim_conflicts = []
+        eim_fitness = []
+        eim_is_solution = []     
+        eim_mom = []
+        eim_dad = []
+        eim_mom_chromosome = []
+        eim_dad_chromosome = []
+        eim_mutated = [] 
+ 
+        # keep breeding until we reach the target population       
+        i = 0
+        while(i < self.parent.parent.settings["eims_per_generation"]):
+            i += 1        
+            
+            # select one of our alphas to be dad
+            dad = alphas.sample(n=2, 
+                                replace=True,
+                                weights=parents["mating_prob"])
+        
+            # select one of our betas to be mom
+            mom = betas.sample(n=2, 
+                               replace=True,
+                               weights=parents["mating_prob"])
+            
+            # breed the selected pair
+            params = {"eimtype":'breeding',
+                          "mom":mom["dna"].iloc[0],
+                          "dad":dad["dna"].iloc[1]}        
+            baby = Eim(self,params)
+            eim_dna.append(baby.dna)
+            eim_conflicts.append(baby.conflicts)            
+            eim_fitness.append(baby.fitness)
+            eim_is_solution.append(baby.is_solution)  
+            eim_mom.append(mom["dna"].astype(str))
+            eim_dad.append(dad["dna"].astype(str)) 
+            eim_mom_chromosome.append(baby.mom_chromosome)
+            eim_dad_chromosome.append(baby.dad_chromosome)
+            eim_mutated.append(baby.mutated)
+            
+        # create dataframe
+        self.set_eims_df([eim_dna,eim_conflicts,eim_fitness,eim_is_solution,eim_mom,eim_dad,eim_mom_chromosome,eim_dad_chromosome,eim_mutated], extended=True) # order matters                        
+
         
     def create_generation_by_random(self):
         """ Make a generation full of random eims """
