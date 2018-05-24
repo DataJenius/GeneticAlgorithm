@@ -5,8 +5,7 @@ Created on Mon May 21 08:22:38 2018
 
 @author: joshwork
 
-These classes contain everything needed to breed and measure eims using 
-the "random" and "natural selection" methods with options
+These classes contain everything needed to breed and measure eims
 """
 
 ######################################################################################
@@ -27,10 +26,11 @@ class Study:
     
         ### These experiment settings are manually set by the scientist experimenting ###   
         self.settings={}
-        self.settings["strategy"] = 'couples'           # random | evolution | harem | couples
-        self.settings["fitness_goal"]= 'min'            # max | min | switch - are we trying to min or max the number of queen conflicts? can also "switch" at halfway point of experiment      
+        self.settings["strategy"] = 'random'           # random | evolution | harem | couples
+        self.settings["fitness_goal"]= 'switch'         # max | min | switch - are we trying to min or max the number of queen conflicts? can also "switch" at halfway point of experiment      
         self.settings["generations"] = 100              # number of generations to spawn in each experiment
         self.settings["eims_per_generation"] = 256      # how many eims should each generation contain? must be even for the "couples" strategy to work
+        self.settings["children_per_couple"] = 4        # how many baby eims should each parent couple make in "couples" strategy?
         self.settings["n_queens"] = 4                   # how many queens? must be even number so we get even chromosome pairs, max is 26 letters in alphabet       
         self.settings["odds_of_mutation"] = 3           # odds of any single baby eim mutating are 1 in X (1 in 16 chance mutation leaves baby alone)
         self.settings["DNA_adam"] = 'AABB'              # DNA for "Adam", len must equal n-queens
@@ -45,10 +45,10 @@ class Study:
         self.results_fitness_over_generations = pd.DataFrame()        
             
         # save into these pickle files
-        save_results_most_solutions             = '256per_100gens_4queens_couples_most_solutions.pkl'
-        save_results_solutions_over_generations = '256per_100gens_4queens_couples_solutions_over_generations.pkl'
-        save_results_conflicts_over_generations = '256per_100gens_4queens_couples_conflicts_over_generations.pkl'
-        save_results_fitness_over_generations   = '256per_100gens_4queens_couples_fitness_over_generations.pkl'
+        save_results_most_solutions             = '256per_100gens_4queens_switch_random_most_solutions.pkl'
+        save_results_solutions_over_generations = '256per_100gens_4queens_switch_random_solutions_over_generations.pkl'
+        save_results_conflicts_over_generations = '256per_100gens_4queens_switch_random_conflicts_over_generations.pkl'
+        save_results_fitness_over_generations   = '256per_100gens_4queens_switch_random_fitness_over_generations.pkl'
                 
         # iterate through our experiment as many times as designated
         i = 0
@@ -120,6 +120,13 @@ class Study:
         
     def get_max_queen_conflicts(self): 
         """ Get the maximum number of conflicts based on n-queens """
+        
+        ### MATH NERD WARNING
+        # This is not accurate- 
+        # This overestimates because it assumes we can put queens ANYWHERE on the board
+        # In our simulations we only place one per row
+        # If anyone has a simple formula that is accurate please email me: josh.pause@gmail.com
+        # For now this works "good enough" but you can never have a perfect solution in "max" mode
         n = self.settings["n_queens"]
         r = 2
         return((factorial(n)/(factorial(r)*factorial(n-r)))*2) # multiply by 2 because we count all conflicts in both directions        
@@ -395,16 +402,16 @@ class Generation:
         eim_dad_chromosome = []
         eim_mutated = [] 
         babies_created = 0
- 
+
         # create two babies from each set of parents - replacement population
         for (mom, dad) in zip(moms["dna"], dads["dna"]):
             params = {"eimtype":'breeding',
                           "mom":mom,
                           "dad":dad}   
             
-            # make four babies 
+            # make X babies per couple
             i = 0
-            while(i < 4):
+            while(i < self.parent.parent.settings["children_per_couple"]):
                 
                 # stop at generation limit
                 if(babies_created >= self.parent.parent.settings["eims_per_generation"]):
@@ -788,6 +795,14 @@ class Eim:
         """ Move queen until we find a conflict or the edge of board """
         row = queen[0]
         col = queen[1]
+        
+        # NERD WARNING: 
+        # This is not super effecient
+        # I did it this way because I was toying with the idea of using other pieces too
+        # E.g. kings, knights, pawns
+        # Abandoned due to finals taking all my time
+        # Good enough for 4-queens, works if you are patient up to 26-queens (sloooooooow)
+
         #print("OUR QUEEN:")
         #print(row, col) 
         #print("checking...")

@@ -19,11 +19,11 @@ from bokeh.plotting import figure, show, output_file
 
 ######################################################################################
 # load data from our two tests
-df1 = pd.read_pickle('results/random1/256per_100gens_4queens_random_fitness_over_generations.pkl')
-df2 = pd.read_pickle('results/evolution1/256per_100gens_4queens_evolution_fitness_over_generations.pkl')
-df3 = pd.read_pickle('results/harem1/256per_100gens_4queens_harem_fitness_over_generations.pkl')
-df4 = pd.read_pickle('results/couples2/256per_100gens_4queens_couples_fitness_over_generations.pkl')
-df1 = df2.drop("gen", axis=1)
+df1 = pd.read_pickle('results/random2_switch/256per_100gens_4queens_switch_random_conflicts_over_generations.pkl')
+df2 = pd.read_pickle('results/evolution2_switch/256per_100gens_4queens_switch_evolution_conflicts_over_generations.pkl')
+df3 = pd.read_pickle('results/harem2_switch/256per_100gens_4queens_switch_harem_conflicts_over_generations.pkl')
+df4 = pd.read_pickle('results/couples3_switch/256per_100gens_4queens_switch_couples_conflicts_over_generations.pkl')
+df1 = df1.drop("gen", axis=1)
 df2 = df2.drop("gen", axis=1)
 df3 = df3.drop("gen", axis=1)
 df4 = df4.drop("gen", axis=1)
@@ -35,19 +35,17 @@ df['evolution'] = df2.mean(axis=1)
 df['harem'] = df3.mean(axis=1)
 df['couples'] = df4.mean(axis=1)
 
-
-
 # make Bokeh chart
-colors_list = ['red', 'green','blue','purple']
+colors_list = ['red','green','blue','purple']
 legends_list = ['random','evolution','couples','harem']
 jojo = range(1,101)
-xs=[jojo, jojo, jojo,jojo]
-ys=[df['random'], df['evolution'],df['couples'],df['harem']]
-p = figure(title="Random v. Evolution v. Couples v. Harem", plot_width=800, plot_height=500)
+xs=[jojo,jojo,jojo,jojo]
+ys=[df['random'],df['evolution'],df['couples'].iloc[1:],df['harem']]
+p = figure(title="Number of Conflicts", plot_width=800, plot_height=500)
 for (colr, leg, x, y ) in zip(colors_list, legends_list, xs, ys):
     my_plot = p.line(x, y, color= colr, line_width=2, legend=leg)
     my_plot = p.line(x, y, color= colr)    
 p.xaxis.axis_label = 'Generation'
-p.yaxis.axis_label = 'Average Fitness over 100 Experiments'
+p.yaxis.axis_label = 'Average Conflicts over 100 Experiments'
 p.legend.location = "bottom_right"
 show(p)
